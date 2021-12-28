@@ -4,7 +4,7 @@
  * Created:
  *   21 Dec 2021, 16:21:49
  * Last edited:
- *   28 Dec 2021, 12:59:48
+ *   28 Dec 2021, 14:54:31
  * Auto updated?
  *   Yes
  *
@@ -253,6 +253,9 @@ impl ArgParser {
 
         // Go through the description word-by-word
         for (word, separator) in WordIterator::new(description) {
+            // Wrap the word in an OpString
+            let oword = OpString::new(word);
+
             // Only do stuff if the parsed word has at least one char
             if word.len() > 0 {
                 // See if we need to go to the next line
@@ -268,7 +271,7 @@ impl ArgParser {
 
                 // Now loop through the word to write it, possibly linewrapped
                 result.reserve(word.len() + word.len() / (line_width - indent_width));
-                for c in unicode_segmentation::UnicodeSegmentation::graphemes(word, true) {
+                for c in oword.chars() {
                     // Split if needed
                     if *x >= line_width {
                         // Add a new line plus the indent
@@ -357,7 +360,8 @@ impl ArgParser {
     ///  * `description`: A string description of the option.
     pub fn add_opt(&mut self, uid: &str, shortname: &str, longname: &str, min_n_values: usize, max_n_values: usize, param_description: &str, description: &str) {
         // Check if the shortname is valid
-        if unicode_segmentation::UnicodeSegmentation::graphemes(shortname, true).collect::<Vec<&str>>().len() > 1 {
+        let oshortname = OpString::new(shortname);
+        if oshortname.len() > 1 {
             panic!("A shortlabel cannot have more than one character: {} > 1.", shortname.len());
         }
 
