@@ -4,7 +4,7 @@
  * Created:
  *   21 Dec 2021, 16:21:49
  * Last edited:
- *   28 Dec 2021, 14:54:31
+ *   02 Jan 2022, 14:05:56
  * Auto updated?
  *   Yes
  *
@@ -41,6 +41,55 @@ pub const HELP_DESCRIPTION: &str = "Shows this list of arguments, then quits.";
 
 
 
+/***** MACROS *****/
+/// Shortcut to getting the arguments from the environment
+#[macro_export]
+macro_rules! get_args_from_env {
+    () => {
+        return std::env::args().collect::<Vec<String>>();
+    };
+}
+
+
+
+
+
+/***** HELPER STRUCTS *****/
+/// Intermediate representation for a Positional.
+struct Positional {
+    /// The uid for this positional.
+    uid         : String,
+    /// The index of this positional.
+    index       : usize,
+    /// The human-readable name for this positional. Used in the usage/help string.
+    name        : String,
+    /// The description for this positional.
+    description : String,
+}
+
+/// Intermediate representation for an Option.
+struct Option {
+    /// The uid for this option.
+    uid               : String,
+    /// The shortname for this option. Will be the empty char (`\0`) if unused.
+    shortname         : String,
+    /// The longname for this option.
+    longname          : String,
+    /// The minimum number of values for this option.
+    min_n_values      : usize,
+    /// The maximum number of values for this option.
+    max_n_values      : usize,
+    /// The description of the parameters for this option.
+    param_description : String,
+    /// The description for this option.
+    description       : String,
+}
+
+
+
+
+
+/***** WORDITERATOR HELPER CLASS *****/
 /// Helper iterator over a string, that returns word-by-word instead of char-by-char.
 /// 
 /// Uses the graphene method to have intuitive characters.
@@ -96,41 +145,6 @@ impl<'a> Iterator for WordIterator<'a> {
             self.i += c.len();
         }
     }
-}
-
-
-
-
-
-/***** HELPER STRUCTS *****/
-/// Intermediate representation for a Positional.
-struct Positional {
-    /// The uid for this positional.
-    uid         : String,
-    /// The index of this positional.
-    index       : usize,
-    /// The human-readable name for this positional. Used in the usage/help string.
-    name        : String,
-    /// The description for this positional.
-    description : String,
-}
-
-/// Intermediate representation for an Option.
-struct Option {
-    /// The uid for this option.
-    uid               : String,
-    /// The shortname for this option. Will be the empty char (`\0`) if unused.
-    shortname         : String,
-    /// The longname for this option.
-    longname          : String,
-    /// The minimum number of values for this option.
-    min_n_values      : usize,
-    /// The maximum number of values for this option.
-    max_n_values      : usize,
-    /// The description of the parameters for this option.
-    param_description : String,
-    /// The description for this option.
-    description       : String,
 }
 
 
@@ -607,8 +621,13 @@ impl ArgParser {
     /// ** Returns **
     /// An ArgDict with the results. If any errors occurred, parses no errors and adds the relevant errors to the dict. If help is given and the user gave it too, only that option is present in the ArgDict.
     pub fn parse(&self, args: &Vec<String>) -> ArgDict {
+        // Quit if not enough arguments
+        if args.len() < 1 {
+            panic!("Not enough arguments given; requires at least an executable as first argument.");
+        }
+
         // Prepare the resulting dict of arguments
-        let mut result = ArgDict::new();
+        let mut result = ArgDict::new(self.use_help);
 
         // Now go through the arguments to parse them
         let mut positional_i = 0;
@@ -782,16 +801,20 @@ impl ArgParser {
 
         // Clear the values if help is given (leaving help in that case) or, if not, there are errors
         if self.use_help && result.options.contains_key(HELP_UID) {
-            // Clear the positionals
+            // Clear the errors and the warnings
+            result.warnings.clear();
+            result.errors.clear();
+            // Clear the positionals & options, except help
             result.positionals.clear();
-            // Clear the options, so that's everything except help
             result.options.retain(|key, _| key.eq(HELP_UID) );
+            // Show the help string
+            print!("{}", self.get_help(&args[0], 20, 80));
         } else if result.errors.len() > 0 {
-            // Clear everything
+            // Clear everything that isn't a warning or an error
             result.positionals.clear();
             result.options.clear();
         }
-        
+
         // Done! Return the result
         return result;
     }
@@ -805,6 +828,9 @@ impl ArgParser {
 /***** ARGDICT CLASS *****/
 /// Defines a dictionary that is returned by the ArgParser, and can be used to lookup parsed positionals and options.
 pub struct ArgDict {
+    /// Stores whether or not help is used.
+    use_help    : bool,
+
     /// Stores the parsed positionals. Each positional is mapped to its uid, and contains its index and string value.
     positionals : PositionalHashMap,
     /// Stores the parsed options. Each option is mapped to its uid.
@@ -819,32 +845,13 @@ pub struct ArgDict {
 /// Defines the ArgDict's methods
 impl ArgDict {
     /// Private constructor for the ArgDict
-    fn new() -> ArgDict {
+    fn new(use_help: bool) -> ArgDict {
         ArgDict {
+            use_help    : use_help,
             positionals : PositionalHashMap::new(),
             options     : OptionHashMap::new(),
             warnings    : Vec::new(),
             errors      : Vec::new()
-        }
-    }
-
-
-
-    /// Checks if any warnings occurred during parsing.
-    /// 
-    /// **Returns**  
-    /// `true` if warnings occurred, or `false` if they didn't.
-    #[inline]
-    pub fn has_warnings(&self) -> bool {
-        self.warnings.len() > 0
-    }
-
-    /// If warnings occurred, prints them one-by-one to stderr.  
-    /// If there are no warnings, does nothing.
-    pub fn print_warnings(&self) {
-        // Simply print them all on the next line
-        for w in self.warnings.iter() {
-            eprintln!("{}", w);
         }
     }
 
@@ -859,6 +866,15 @@ impl ArgDict {
         self.errors.len() > 0
     }
 
+    /// Returns the internal errors as a vector.
+    /// 
+    /// **Returns**  
+    /// The errors as a Vec<String>. If there are no errors, it is empty.
+    #[inline]
+    pub fn get_errors(&self) -> &Vec<String> {
+        return &self.errors;
+    }
+
     /// If errors occurred, prints them one-by-one to stderr.  
     /// If there are no errors, does nothing.
     pub fn print_errors(&self) {
@@ -866,6 +882,46 @@ impl ArgDict {
         for e in self.errors.iter() {
             eprint!("{}\n", e);
         }
+    }
+
+
+
+    /// Checks if any warnings occurred during parsing.
+    /// 
+    /// **Returns**  
+    /// `true` if warnings occurred, or `false` if they didn't.
+    #[inline]
+    pub fn has_warnings(&self) -> bool {
+        self.warnings.len() > 0
+    }
+
+    /// Returns the internal warnings as a vector.
+    /// 
+    /// **Returns**  
+    /// The warnings as a Vec<String>. If there are no warnings, it is empty.
+    #[inline]
+    pub fn get_warnings(&self) -> &Vec<String> {
+        return &self.warnings;
+    }
+
+    /// If warnings occurred, prints them one-by-one to stderr.  
+    /// If there are no warnings, does nothing.
+    pub fn print_warnings(&self) {
+        // Simply print them all on the next line
+        for w in self.warnings.iter() {
+            eprintln!("{}", w);
+        }
+    }
+
+
+
+    /// Returns whether or not help has been given.
+    /// 
+    /// **Returns**
+    /// True if it was, false if it wasn't.
+    #[inline]
+    pub fn has_help(&self) -> bool {
+        return self.use_help && self.has_opt(HELP_UID);
     }
 
 
