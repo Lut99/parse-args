@@ -4,7 +4,7 @@
  * Created:
  *   21 Dec 2021, 16:21:49
  * Last edited:
- *   02 Jan 2022, 14:05:56
+ *   02 Jan 2022, 17:16:00
  * Auto updated?
  *   Yes
  *
@@ -334,6 +334,94 @@ impl ArgParser {
         }
     }
 
+    /// Helper function that prints the given positional to the given string, neatly formatted and line-wrapped.  
+    /// Note that the string will be assuming it is written after a newline, and will terminate itself with newlines too.
+    /// 
+    /// Note that this function will panic! is the given uid doesn't exists.
+    ///
+    /// **Arguments**
+    ///  * `result`: The resulting string to write to.
+    ///  * `uid': The uid of the positional to write its help string for.
+    ///  * `indent_width`: The prefix width of each new line. Also the space positionals have before they interrupt the description column.
+    ///  * `line_width`: The total line width of each line.
+    fn print_pos_help(&self, result: &mut String, uid: &str, indent_width: usize, line_width: usize) {
+        // Try to find the positional
+        let mut opt_pos: std::option::Option<&Positional> = None;
+        for p in self.positionals.iter() {
+            if p.uid.eq(uid) {
+                opt_pos = Some(p);
+                break;
+            }
+        }
+        if let None = opt_pos { panic!("Unknown positional '{}'.", uid); }
+        let pos = opt_pos.unwrap();
+
+        // Prepare the argument string and write it
+        let pos_name = format!("  <{}>", pos.name);
+        result.push_str(pos_name.as_str());
+
+        // Either pad the string until the description column, or add a newline
+        if 2 + pos_name.len() >= indent_width {
+            // Add a new line plus the indent
+            result.reserve(1 + indent_width);
+            result.push('\n');
+            result.push_str(ArgParser::generate_spaces(indent_width).as_str());
+        } else {
+            result.push_str(ArgParser::generate_spaces(indent_width - pos_name.len()).as_str());
+        }
+
+        // Start writing the lines, linewrapped
+        let mut x: usize = indent_width;
+        ArgParser::print_description(result, &mut x, pos.description.as_str(), indent_width, line_width);
+
+        // Write a final newline character and we're done
+        result.push('\n');
+    }
+
+    /// Helper function that prints the given option to the given string, neatly formatted and line-wrapped.  
+    /// Note that the string will be assuming it is written after a newline, and will terminate itself with newlines too.
+    /// 
+    /// Note that this function will panic! is the given uid doesn't exists.
+    ///
+    /// **Arguments**
+    ///  * `result`: The resulting string to write to.
+    ///  * `uid': The uid of the option to write its help string for.
+    ///  * `indent_width`: The prefix width of each new line. Also the space options have before they interrupt the description column.
+    ///  * `line_width`: The total line width of each line.
+    fn print_opt_help(&self, result: &mut String, uid: &str, indent_width: usize, line_width: usize) {
+        // Try to find the positional
+        let mut opt_opt: std::option::Option<&Option> = None;
+        for o in self.options.iter() {
+            if o.uid.eq(uid) {
+                opt_opt = Some(o);
+                break;
+            }
+        }
+        if let None = opt_opt { panic!("Unknown option '{}'.", uid); }
+        let opt = opt_opt.unwrap();
+
+        // Prepare the argument string and write it
+        let opt_name = format!("  {}--{}{}", if opt.shortname.len() > 0 { format!("-{},", opt.shortname) } else { String::new() }, opt.longname, if opt.param_description.len() > 0 { format!(" {}", opt.param_description) } else { String::new() });
+        result.push_str(opt_name.as_str());
+
+        // Either pad the string until the description column, or add a newline
+        if 2 + opt_name.len() >= indent_width {
+            // Add a new line plus the indent
+            result.reserve(1 + indent_width);
+            result.push('\n');
+            result.push_str(ArgParser::generate_spaces(indent_width).as_str());
+        } else {
+            result.push_str(ArgParser::generate_spaces(indent_width - opt_name.len()).as_str());
+        }
+
+        // Start writing the lines, linewrapped
+        let mut x: usize = indent_width;
+        ArgParser::print_description(result, &mut x, opt.description.as_str(), indent_width, line_width);
+
+        // Write a final newline character and we're done
+        result.push('\n');
+    }
+
 
 
     /// Registers a new positional argument.
@@ -457,6 +545,72 @@ impl ArgParser {
 
 
 
+    /// Returns the index of the given positional.
+    /// 
+    /// **Arguments**
+    ///  * `uid`: The uid of the positional whos index we want to get.
+    /// 
+    /// **Returns**  
+    /// The given positional's index, or panic!'s if that positional isn't known.
+    pub fn get_index(&self, uid: &str) -> usize {
+        for p in self.positionals.iter() {
+            if p.uid.eq(uid) {
+                return p.index;
+            }
+        }
+        panic!("Cannot get index of unknown positional '{}'.", uid);
+    }
+
+    /// Returns the name of the given positional.
+    /// 
+    /// **Arguments**
+    ///  * `uid`: The uid of the positional whos name we want to get.
+    /// 
+    /// **Returns**  
+    /// The given positional's name, or panic!'s if that positional isn't known.
+    pub fn get_name(&self, uid: &str) -> &str {
+        for p in self.positionals.iter() {
+            if p.uid.eq(uid) {
+                return &p.name;
+            }
+        }
+        panic!("Cannot get name of unknown positional '{}'.", uid);
+    }
+
+    /// Returns the shortname of the option with the given uid.
+    /// 
+    /// **Arguments**
+    ///  * `uid`: The uid of the option to get.
+    /// 
+    /// **Returns**  
+    /// The given option's shortname, or panic!'s if that option isn't known.
+    pub fn get_shortname(&self, uid: &str) -> &str {
+        for o in self.options.iter() {
+            if o.uid.eq(uid) {
+                return &o.shortname;
+            }
+        }
+        panic!("Cannot get shortname of unknown option '{}'.", uid);
+    }
+
+    /// Returns the longname of the option with the given uid.
+    /// 
+    /// **Arguments**
+    ///  * `uid`: The uid of the option to get.
+    /// 
+    /// **Returns**  
+    /// The given option's longname, or panic!'s if that option isn't known.
+    pub fn get_longname(&self, uid: &str) -> &str {
+        for o in self.options.iter() {
+            if o.uid.eq(uid) {
+                return &o.longname;
+            }
+        }
+        panic!("Cannot get longname of unknown option '{}'.", uid);
+    }
+
+
+
     /// Generates the usage string for this argument instance.
     /// 
     /// Note that this string is not terminated by a newline.
@@ -483,94 +637,6 @@ impl ArgParser {
 
         // Return it!
         return result;
-    }
-
-    /// Helper function that prints the given positional to the given string, neatly formatted and line-wrapped.  
-    /// Note that the string will be assuming it is written after a newline, and will terminate itself with newlines too.
-    /// 
-    /// Note that this function will panic! is the given uid doesn't exists.
-    ///
-    /// **Arguments**
-    ///  * `result`: The resulting string to write to.
-    ///  * `uid': The uid of the positional to write its help string for.
-    ///  * `indent_width`: The prefix width of each new line. Also the space positionals have before they interrupt the description column.
-    ///  * `line_width`: The total line width of each line.
-    pub fn print_pos_help(&self, result: &mut String, uid: &str, indent_width: usize, line_width: usize) {
-        // Try to find the positional
-        let mut opt_pos: std::option::Option<&Positional> = None;
-        for p in self.positionals.iter() {
-            if p.uid.eq(uid) {
-                opt_pos = Some(p);
-                break;
-            }
-        }
-        if let None = opt_pos { panic!("Unknown positional '{}'.", uid); }
-        let pos = opt_pos.unwrap();
-
-        // Prepare the argument string and write it
-        let pos_name = format!("  <{}>", pos.name);
-        result.push_str(pos_name.as_str());
-
-        // Either pad the string until the description column, or add a newline
-        if 2 + pos_name.len() >= indent_width {
-            // Add a new line plus the indent
-            result.reserve(1 + indent_width);
-            result.push('\n');
-            result.push_str(ArgParser::generate_spaces(indent_width).as_str());
-        } else {
-            result.push_str(ArgParser::generate_spaces(indent_width - pos_name.len()).as_str());
-        }
-
-        // Start writing the lines, linewrapped
-        let mut x: usize = indent_width;
-        ArgParser::print_description(result, &mut x, pos.description.as_str(), indent_width, line_width);
-
-        // Write a final newline character and we're done
-        result.push('\n');
-    }
-
-    /// Helper function that prints the given option to the given string, neatly formatted and line-wrapped.  
-    /// Note that the string will be assuming it is written after a newline, and will terminate itself with newlines too.
-    /// 
-    /// Note that this function will panic! is the given uid doesn't exists.
-    ///
-    /// **Arguments**
-    ///  * `result`: The resulting string to write to.
-    ///  * `uid': The uid of the option to write its help string for.
-    ///  * `indent_width`: The prefix width of each new line. Also the space options have before they interrupt the description column.
-    ///  * `line_width`: The total line width of each line.
-    pub fn print_opt_help(&self, result: &mut String, uid: &str, indent_width: usize, line_width: usize) {
-        // Try to find the positional
-        let mut opt_opt: std::option::Option<&Option> = None;
-        for o in self.options.iter() {
-            if o.uid.eq(uid) {
-                opt_opt = Some(o);
-                break;
-            }
-        }
-        if let None = opt_opt { panic!("Unknown option '{}'.", uid); }
-        let opt = opt_opt.unwrap();
-
-        // Prepare the argument string and write it
-        let opt_name = format!("  {}--{}{}", if opt.shortname.len() > 0 { format!("-{},", opt.shortname) } else { String::new() }, opt.longname, if opt.param_description.len() > 0 { format!(" {}", opt.param_description) } else { String::new() });
-        result.push_str(opt_name.as_str());
-
-        // Either pad the string until the description column, or add a newline
-        if 2 + opt_name.len() >= indent_width {
-            // Add a new line plus the indent
-            result.reserve(1 + indent_width);
-            result.push('\n');
-            result.push_str(ArgParser::generate_spaces(indent_width).as_str());
-        } else {
-            result.push_str(ArgParser::generate_spaces(indent_width - opt_name.len()).as_str());
-        }
-
-        // Start writing the lines, linewrapped
-        let mut x: usize = indent_width;
-        ArgParser::print_description(result, &mut x, opt.description.as_str(), indent_width, line_width);
-
-        // Write a final newline character and we're done
-        result.push('\n');
     }
 
     /// Generates the help string for this argument instance.
@@ -790,12 +856,15 @@ impl ArgParser {
 
         // Check if each option has enough values
         for opt in self.options.iter() {
-            // See if this one appears in the output
-            if result.options.contains_key(&opt.uid) {
-                let values = &result.options.get(&opt.uid).unwrap().2;
-                if values.len() < opt.min_n_values as usize {
-                    result.errors.push(format!("Not enough values for '--{}': expected {}, got {}.", opt.longname, opt.min_n_values, values.len()));
-                }
+            // Skip the option if the user never gave it
+            if !result.options.contains_key(&opt.uid) { continue; }
+
+            // Verify the number of values
+            let values = &result.options.get(&opt.uid).unwrap().2;
+            if values.len() < opt.min_n_values {
+                result.errors.push(format!("Not enough values for '--{}': expected at least {}, got {}.", opt.longname, opt.min_n_values, values.len()));
+            } else if values.len() > opt.max_n_values {
+                result.errors.push(format!("Too many values for '--{}': expected at most {}, got {}.", opt.longname, opt.max_n_values, values.len()));
             }
         }
 
@@ -952,21 +1021,6 @@ impl ArgDict {
 
 
 
-    /// Returns the index of the given positional.
-    /// 
-    /// **Arguments**
-    ///  * `uid`: The uid of the positional whos index we want to get.
-    /// 
-    /// **Returns**  
-    /// An Option with either the index of the given positional or 'none'.
-    pub fn get_pos_index(&self, uid: &str) -> std::option::Option<usize> {
-        if self.has_pos(uid) {
-            return Some(self.positionals.get(uid).unwrap().0);
-        } else {
-            return None;
-        }
-    }
-
     /// Returns the value of the positional with the given uid.
     /// 
     /// **Arguments**
@@ -974,41 +1028,9 @@ impl ArgDict {
     /// 
     /// **Returns**  
     /// An Option that is either the value of the positional or 'none'.
-    pub fn get_pos(&self, uid: &str) -> std::option::Option<&String> {
+    pub fn get_pos(&self, uid: &str) -> std::option::Option<&str> {
         if self.has_pos(uid) {
             return Some(&self.positionals.get(uid).unwrap().1);
-        } else {
-            return None;
-        }
-    }
-
-
-    
-    /// Returns the shortname of the option with the given uid.
-    /// 
-    /// **Arguments**
-    ///  * `uid`: The uid of the option to get.
-    /// 
-    /// **Returns**  
-    /// An Option that is either the shortname of the option or 'none'.
-    pub fn get_opt_shortname(&self, uid: &str) -> std::option::Option<&str> {
-        if self.has_opt(uid) {
-            return Some(self.options.get(uid).unwrap().0.as_str());
-        } else {
-            return None;
-        }
-    }
-    
-    /// Returns the longname of the option with the given uid.
-    /// 
-    /// **Arguments**
-    ///  * `uid`: The uid of the option to get.
-    /// 
-    /// **Returns**  
-    /// An Option that is either the longname of the option or 'none'.
-    pub fn get_opt_longname(&self, uid: &str) -> std::option::Option<&String> {
-        if self.has_opt(uid) {
-            return Some(&self.options.get(uid).unwrap().1);
         } else {
             return None;
         }
