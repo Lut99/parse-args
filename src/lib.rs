@@ -4,7 +4,7 @@
  * Created:
  *   21 Dec 2021, 16:21:49
  * Last edited:
- *   02 Jan 2022, 17:16:00
+ *   02 Jan 2022, 17:43:31
  * Auto updated?
  *   Yes
  *
@@ -48,6 +48,207 @@ macro_rules! get_args_from_env {
     () => {
         return std::env::args().collect::<Vec<String>>();
     };
+}
+
+
+
+
+
+/***** UNIT TESTS *****/
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_parser() {
+        // Create an empty parser
+        let parser = ArgParser::new();
+
+        // Parse nothing
+        let args = vec!(String::from("./test_exec"));
+        let dict = parser.parse(&args);
+
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+    }
+
+    #[test]
+    fn simple_pos_parser() {
+        // Create a parser with one positional
+        let mut parser = ArgParser::new();
+        parser.add_pos("pos1", "pos1", "A test positional.");
+
+        // Parse a value for this positional
+        let args = vec!(String::from("./test_exec"), String::from("test"));
+        let dict = parser.parse(&args);
+
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+
+        // The value of pos1 should be 'test'
+        assert_eq!(dict.has_pos("pos1"), true);
+        assert_eq!(dict.get_pos("pos1").unwrap(), "test");
+    }
+
+    #[test]
+    fn simple_opt_parser() {
+        // Create a parser with one option
+        let mut parser = ArgParser::new();
+        parser.add_opt("opt1", "o", "opt1", 0, 0, "", "A test option.");
+
+        // Try to parse its existance with shortname first
+        let mut args = vec!(String::from("./test_exec"), String::from("-o"));
+        let mut dict = parser.parse(&args);
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+        // opt1 should exist
+        assert_eq!(dict.has_opt("opt1"), true);
+
+        // Now with longname
+        args = vec!(String::from("./test_exec"), String::from("--opt1"));
+        dict = parser.parse(&args);
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+        // opt1 should exist
+        assert_eq!(dict.has_opt("opt1"), true);
+    }
+
+    #[test]
+    fn values_opt_parser() {
+        // Create a parser with one option that has values
+        let mut parser = ArgParser::new();
+        parser.add_opt("opt1", "o", "opt1", 0, 3, "", "A test option.");
+
+        // Try to parse its existance with shortname first
+        let mut args = vec!(String::from("./test_exec"), String::from("-o"));
+        let mut dict = parser.parse(&args);
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+        // opt1 should exist and have no values
+        assert_eq!(dict.has_opt("opt1"), true);
+        assert_eq!(dict.get_opt("opt1").unwrap().len(), 0);
+
+        // Now with three options, shortname
+        args = vec!(String::from("./test_exec"), String::from("-o"), String::from("1"), String::from("2"), String::from("3"));
+        dict = parser.parse(&args);
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+        // opt1 should exist and have 3 values
+        assert_eq!(dict.has_opt("opt1"), true);
+        assert_eq!(dict.get_opt("opt1").unwrap().len(), 3);
+        assert_eq!(dict.get_opt("opt1").unwrap()[0], "1");
+        assert_eq!(dict.get_opt("opt1").unwrap()[1], "2");
+        assert_eq!(dict.get_opt("opt1").unwrap()[2], "3");
+
+        // Now a longname, no options
+        let mut args = vec!(String::from("./test_exec"), String::from("--opt1"));
+        let mut dict = parser.parse(&args);
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+        // opt1 should exist and have no values
+        assert_eq!(dict.has_opt("opt1"), true);
+        assert_eq!(dict.get_opt("opt1").unwrap().len(), 0);
+
+        // Finally with three options, longname
+        args = vec!(String::from("./test_exec"), String::from("--opt1"), String::from("1"), String::from("2"), String::from("3"));
+        dict = parser.parse(&args);
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+        // opt1 should exist and have 3 values
+        assert_eq!(dict.has_opt("opt1"), true);
+        assert_eq!(dict.get_opt("opt1").unwrap().len(), 3);
+        assert_eq!(dict.get_opt("opt1").unwrap()[0], "1");
+        assert_eq!(dict.get_opt("opt1").unwrap()[1], "2");
+        assert_eq!(dict.get_opt("opt1").unwrap()[2], "3");
+
+        // Finally with two options, mixed
+        args = vec!(String::from("./test_exec"), String::from("--opt1"), String::from("1"), String::from("-o"), String::from("2"));
+        dict = parser.parse(&args);
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+        // opt1 should exist and have 3 values
+        assert_eq!(dict.has_opt("opt1"), true);
+        assert_eq!(dict.get_opt("opt1").unwrap().len(), 2);
+        assert_eq!(dict.get_opt("opt1").unwrap()[0], "1");
+        assert_eq!(dict.get_opt("opt1").unwrap()[1], "2");
+    }
+
+    #[test]
+    fn mixed_parser() {
+        // Create a parser with several positionals and options
+        let mut parser = ArgParser::new();
+        parser.add_pos("pos1", "pos1", "A test positional.");
+        parser.add_pos("pos2", "pos2", "Another test positional.");
+        parser.add_opt("opt1", "o", "opt1", 0, 3, "[<opt1>[ <opt2>[ <opt3>]]]", "A test option.");
+        parser.add_opt("opt2", "", "opt2", 4, 4, "<opt1> <opt2> <opt3> <opt4>", "Another test option.");
+
+        // Parse a tough string
+        let args = vec!(String::from("./test_exec"), String::from("test1"), String::from("-o"), String::from("test2"), String::from("test3"), String::from("--opt2"), String::from("test4"), String::from("--opt1"), String::from("test5"), String::from("test6"), String::from("--opt2"), String::from("test7"), String::from("test8"), String::from("test9"));
+        let dict = parser.parse(&args);
+
+        // No warnings or errors should have occurred
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), false);
+
+        // The value of the first positional should be 'test1'
+        assert_eq!(dict.has_pos("pos1"), true);
+        assert_eq!(dict.get_pos("pos1").unwrap(), "test1");
+        // The value of the second positional should be 'test6'
+        assert_eq!(dict.has_pos("pos2"), true);
+        assert_eq!(dict.get_pos("pos2").unwrap(), "test6");
+        // The value of the first option should be 'test2', 'test3' and 'test5'
+        assert_eq!(dict.has_opt("opt1"), true);
+        assert_eq!(dict.get_opt("opt1").unwrap().len(), 3);
+        assert_eq!(dict.get_opt("opt1").unwrap()[0], "test2");
+        assert_eq!(dict.get_opt("opt1").unwrap()[1], "test3");
+        assert_eq!(dict.get_opt("opt1").unwrap()[2], "test5");
+        // The value of the second option should be 'test4', 'test7', 'test8' and 'test9'
+        assert_eq!(dict.has_opt("opt2"), true);
+        assert_eq!(dict.get_opt("opt2").unwrap().len(), 4);
+        assert_eq!(dict.get_opt("opt2").unwrap()[0], "test4");
+        assert_eq!(dict.get_opt("opt2").unwrap()[1], "test7");
+        assert_eq!(dict.get_opt("opt2").unwrap()[2], "test8");
+        assert_eq!(dict.get_opt("opt2").unwrap()[3], "test9");
+    }
+
+    #[test]
+    fn warnings() {
+        // Create an empty parser
+        let parser = ArgParser::new();
+
+        // Parse a few positionals
+        let args = vec!(String::from("./test_exec"), String::from("test1"), String::from("test2"), String::from("test3"));
+        let dict = parser.parse(&args);
+
+        // Three warnings should have occurred but no errors
+        assert_eq!(dict.has_warnings(), true);
+        assert_eq!(dict.get_warnings().len(), 3);
+        assert_eq!(dict.has_errors(), false);
+    }
+
+    #[test]
+    fn errors() {
+        // Create an empty parser
+        let parser = ArgParser::new();
+
+        // Parse a few unknown options
+        let args = vec!(String::from("./test_exec"), String::from("--test1"), String::from("-test2"), String::from("--test3"));
+        let dict = parser.parse(&args);
+
+        // Three errors should have occurred but no warnings
+        assert_eq!(dict.has_warnings(), false);
+        assert_eq!(dict.has_errors(), true);
+        assert_eq!(dict.get_errors().len(), 3);
+    }
 }
 
 
@@ -758,7 +959,7 @@ impl ArgParser {
 
                             } else if o.max_n_values > 0 {
                                 // Parse the rest of the arguments as values
-                                let mut new_values = ArgParser::parse_values(args, &mut i, o.max_n_values, &mut parse_options, self.use_double_dash);
+                                let mut new_values = ArgParser::parse_values(args, &mut i, o.max_n_values - values.len(), &mut parse_options, self.use_double_dash);
                                 values.append(&mut new_values);
 
                             }
@@ -816,7 +1017,7 @@ impl ArgParser {
 
                             } else if o.max_n_values > 0 {
                                 // Parse the rest of the arguments as values
-                                let mut new_values = ArgParser::parse_values(args, &mut i, o.max_n_values, &mut parse_options, self.use_double_dash);
+                                let mut new_values = ArgParser::parse_values(args, &mut i, o.max_n_values - values.len(), &mut parse_options, self.use_double_dash);
                                 values.append(&mut new_values);
 
                             }
