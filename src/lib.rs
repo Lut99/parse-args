@@ -4,7 +4,7 @@
  * Created:
  *   21 Dec 2021, 16:21:49
  * Last edited:
- *   03 Jan 2022, 10:18:02
+ *   03 Jan 2022, 10:20:54
  * Auto updated?
  *   Yes
  *
@@ -861,16 +861,24 @@ impl ArgParser {
 
         // Print the positionals
         result.push_str("Positionals:\n");
-        for p in self.positionals.iter() {
-            // Print it
-            self.print_pos_help(&mut result, &p.uid, indent_width, line_width);
+        if self.positionals.len() > 0 {
+            for p in self.positionals.iter() {
+                // Print it
+                self.print_pos_help(&mut result, &p.uid, indent_width, line_width);
+            }
+        } else {
+            result.push_str("   <none>\n");
         }
 
         // Print the options
         result.push_str("\nOptions:\n");
-        for o in self.options.iter() {
-            // Print it
-            self.print_opt_help(&mut result, &o.uid, indent_width, line_width);
+        if self.options.len() > 0 {
+            for o in self.options.iter() {
+                // Print it
+                self.print_opt_help(&mut result, &o.uid, indent_width, line_width);
+            }
+        } else {
+            result.push_str("   <none>\n");
         }
         result.push('\n');
 
