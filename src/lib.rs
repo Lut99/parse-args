@@ -4,7 +4,7 @@
  * Created:
  *   21 Dec 2021, 16:21:49
  * Last edited:
- *   02 Jan 2022, 17:43:31
+ *   03 Jan 2022, 10:18:02
  * Auto updated?
  *   Yes
  *
@@ -46,7 +46,7 @@ pub const HELP_DESCRIPTION: &str = "Shows this list of arguments, then quits.";
 #[macro_export]
 macro_rules! get_args_from_env {
     () => {
-        return std::env::args().collect::<Vec<String>>();
+        std::env::args().collect::<Vec<String>>()
     };
 }
 
